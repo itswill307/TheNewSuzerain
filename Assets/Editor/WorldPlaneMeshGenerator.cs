@@ -89,6 +89,12 @@ public class WorldPlaneMeshGenerator : EditorWindow
         mesh.triangles = tris;
         mesh.RecalculateBounds();
 
+        var b = mesh.bounds;                         // current box: size.x ≈ 2πR, size.y ≈ πR, size.z ≈ 0
+        b.extents = new Vector3(b.extents.x,         // keep existing X
+                                b.extents.y,         // keep existing Y
+                                R);                 // allow ±R in Z for the sphere morph
+        mesh.bounds = b;
+
         // --- save mesh asset only
         string path = AssetDatabase.GenerateUniqueAssetPath($"Assets/{mesh.name}.asset");
         AssetDatabase.CreateAsset(mesh, path);

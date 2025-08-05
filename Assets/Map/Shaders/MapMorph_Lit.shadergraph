@@ -619,7 +619,7 @@
     },
     "m_Slots": [
         {
-            "m_Id": "e580ff0e02524c8ca95a7257027bdbdf"
+            "m_Id": "33822c360fbd4a4e8df78deffb6c1498"
         },
         {
             "m_Id": "468b73b09da8465baa526829e8b6d692"
@@ -628,10 +628,10 @@
             "m_Id": "f63f4cb72b624a62ac476b66f9f5c3a2"
         },
         {
-            "m_Id": "be04cd3b727f4090b083e752f089bb26"
+            "m_Id": "dfe4c987a78d4458b08af970a4e087da"
         },
         {
-            "m_Id": "41dc66bf085143098548b76abcded8a3"
+            "m_Id": "c789a69b31e749bcbbe2351221e7ed6c"
         }
     ],
     "synonyms": [
@@ -649,7 +649,7 @@
     "m_FunctionName": "PlaneSphereMorph",
     "m_FunctionSource": "8af971b2890568e4e92831fc66608351",
     "m_FunctionSourceUsePragmas": true,
-    "m_FunctionBody": "void PlaneSphereMorph_float(float2 uv, float Radius, float Morph, out float3 outPos, out float3 outNorm)\r\n{\r\n    const float PI = 3.14159265359;\r\n    float lon = (uv.x - 0.5) * (2.0 * PI);\r\n    float lat = (uv.y - 0.5) * PI;\r\n\r\n    float3 sphere = Radius * float3(cos(lat)*cos(lon), sin(lat), cos(lat)*sin(lon));\r\n\r\n    float3 plane  = float3((uv.x - 0.5) * (2.0 * PI * Radius), (uv.y - 0.5) * (PI * Radius), 0.0);\r\n\r\n    outPos  = lerp(plane, sphere, Morph);\r\n\r\n    float3 nPlane  = float3(0,0,1);\r\n    float3 nSphere = normalize(sphere);\r\n    outNorm = normalize(lerp(nPlane, nSphere, Morph));\r\n}\r\n"
+    "m_FunctionBody": "Enter function body here..."
 }
 
 {
@@ -789,6 +789,27 @@
 {
     "m_SGVersion": 0,
     "m_Type": "UnityEditor.ShaderGraph.Vector2MaterialSlot",
+    "m_ObjectId": "33822c360fbd4a4e8df78deffb6c1498",
+    "m_Id": 0,
+    "m_DisplayName": "UV",
+    "m_SlotType": 0,
+    "m_Hidden": false,
+    "m_ShaderOutputName": "UV",
+    "m_StageCapability": 3,
+    "m_Value": {
+        "x": 0.0,
+        "y": 0.0
+    },
+    "m_DefaultValue": {
+        "x": 0.0,
+        "y": 0.0
+    },
+    "m_Labels": []
+}
+
+{
+    "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.Vector2MaterialSlot",
     "m_ObjectId": "37502018821144059d7dca8865916231",
     "m_Id": 3,
     "m_DisplayName": "Out",
@@ -869,29 +890,6 @@
         "x": 0.0,
         "y": 1.0
     }
-}
-
-{
-    "m_SGVersion": 0,
-    "m_Type": "UnityEditor.ShaderGraph.Vector3MaterialSlot",
-    "m_ObjectId": "41dc66bf085143098548b76abcded8a3",
-    "m_Id": 4,
-    "m_DisplayName": "outNorm",
-    "m_SlotType": 1,
-    "m_Hidden": false,
-    "m_ShaderOutputName": "outNorm",
-    "m_StageCapability": 3,
-    "m_Value": {
-        "x": 0.0,
-        "y": 0.0,
-        "z": 0.0
-    },
-    "m_DefaultValue": {
-        "x": 0.0,
-        "y": 0.0,
-        "z": 0.0
-    },
-    "m_Labels": []
 }
 
 {
@@ -1701,12 +1699,12 @@
 {
     "m_SGVersion": 0,
     "m_Type": "UnityEditor.ShaderGraph.Vector3MaterialSlot",
-    "m_ObjectId": "be04cd3b727f4090b083e752f089bb26",
-    "m_Id": 1,
-    "m_DisplayName": "outPos",
+    "m_ObjectId": "c789a69b31e749bcbbe2351221e7ed6c",
+    "m_Id": 4,
+    "m_DisplayName": "OutNormal",
     "m_SlotType": 1,
     "m_Hidden": false,
-    "m_ShaderOutputName": "outPos",
+    "m_ShaderOutputName": "OutNormal",
     "m_StageCapability": 3,
     "m_Value": {
         "x": 0.0,
@@ -1820,21 +1818,23 @@
 
 {
     "m_SGVersion": 0,
-    "m_Type": "UnityEditor.ShaderGraph.Vector2MaterialSlot",
-    "m_ObjectId": "e580ff0e02524c8ca95a7257027bdbdf",
-    "m_Id": 0,
-    "m_DisplayName": "uv",
-    "m_SlotType": 0,
+    "m_Type": "UnityEditor.ShaderGraph.Vector3MaterialSlot",
+    "m_ObjectId": "dfe4c987a78d4458b08af970a4e087da",
+    "m_Id": 1,
+    "m_DisplayName": "OutPosition",
+    "m_SlotType": 1,
     "m_Hidden": false,
-    "m_ShaderOutputName": "uv",
+    "m_ShaderOutputName": "OutPosition",
     "m_StageCapability": 3,
     "m_Value": {
         "x": 0.0,
-        "y": 0.0
+        "y": 0.0,
+        "z": 0.0
     },
     "m_DefaultValue": {
         "x": 0.0,
-        "y": 0.0
+        "y": 0.0,
+        "z": 0.0
     },
     "m_Labels": []
 }
