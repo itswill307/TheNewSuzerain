@@ -13,14 +13,24 @@ public class WorldMapController : MonoBehaviour
 
     [Header("Zoom")]
     [SerializeField] float zoomSpeed = 6f;           // zoom sensitivity
-    [SerializeField] float zoomInBuffer = 0.5f;      // additional distance from mesh surface
+    [SerializeField] float zoomInBuffer = 0.01f;      // additional distance from mesh surface as a percentage of radius
 
     [Header("Panning")]
     [SerializeField] float panKeySpeed = 60f;        // degrees per second for keys
     
+    [Header("Rotation")]
+    [SerializeField, Tooltip("Degrees of yaw/pitch per pixel when rotating (right mouse drag)")]
+    float rotateSensitivity = 0.2f;
+    [SerializeField, Tooltip("Minimum and maximum pitch (deg) to keep camera right-side up")]
+    float minPitchDeg = -80f, maxPitchDeg = 80f;
+    [SerializeField, Tooltip("Speed at which camera returns to default when RMB is released (deg/sec)")]
+    float returnToDefaultSpeed = 240f;
+    
     [Header("Morph")]
     [SerializeField] float currentMorph = 0f;        // current morph value (0=flat, 1=sphere) - controlled by zoom
     [SerializeField] bool enableZoomMorph = true;    // enable automatic morph based on zoom level
+    [SerializeField, Tooltip("Exponent shaping for morph vs zoom. >1 slows morph early; <1 speeds it up.")]
+    float morphExponent = 4.0f;
 
     // ---------- private ----------
     Camera cam;
@@ -29,11 +39,19 @@ public class WorldMapController : MonoBehaviour
     float baseDistance;     // default distance to fit map width
     float minZoom, maxZoom; // zoom distance limits
     float currentZoom;      // current zoom distance
-    float sphereRadius;
     
     // Panning state - hybrid approach for optimal visual quality
     float focusLon = 0f;    // longitude center (-180 to 180) - handled by UV offset only
     float cameraLat = 0f;   // camera latitude in degrees - handled by camera position + Z distance correction
+    
+    // Orbit state (right-mouse drag) – camera rotates around surface pivot without altering focusLon/cameraLat
+    float orbitYawDeg = 0f;    // around world up
+    float orbitPitchDeg = 0f;  // around camera right (kept clamped)
+    
+    // Cached latitude limits (only recalculated when zoom changes)
+    float cachedMinLatLimit = -90f;
+    float cachedMaxLatLimit = 90f;
+    float lastZoomForLimits = -1f;
 
     void Awake()
     {
@@ -54,9 +72,7 @@ public class WorldMapController : MonoBehaviour
         // Initialize camera with identity rotation to avoid -180 Y rotation issue
         transform.localRotation = Quaternion.identity;
 
-        sphereRadius = Mathf.Lerp(radius * 3.0f, radius, currentMorph);
-
-        PositionCamera(sphereRadius);
+        PositionCamera();
         
         // Set up map for flat viewing
         SetupFlatMap();
@@ -71,58 +87,69 @@ public class WorldMapController : MonoBehaviour
         float vFOV = cam.fieldOfView * Mathf.Deg2Rad;
         float hFOV = 2f * Mathf.Atan(Mathf.Tan(vFOV * 0.5f) * cam.aspect);
 
-        // Base distance to fit map width exactly - this becomes our zoom out limit
-        baseDistance = (mapWidth * 0.5f) / Mathf.Tan(hFOV * 0.5f);
-        maxZoom = baseDistance;  // zoom out limit = map fills screen horizontally
+        // Calculate distance to fit map width and height
+        float horizontalDistance = (mapWidth * 0.5f) / Mathf.Tan(hFOV * 0.5f);
+        float verticalDistance = (mapHeight * 0.5f) / Mathf.Tan(vFOV * 0.5f);
+        
+        // Use the smaller distance to fill screen with no margins
+        baseDistance = Mathf.Min(horizontalDistance, verticalDistance);
+        
+        // Use the smaller distance to fill screen with no margins
+        maxZoom = Mathf.Min(horizontalDistance, verticalDistance);
         
         // Calculate zoom in limit based on actual mesh distance
-        minZoom = CalculateMinZoomFromMesh();
+        minZoom = radius * zoomInBuffer;
     }
 
-    float CalculateMinZoomFromMesh()
+    void PositionCamera()
     {
-        return radius * 0.01f; // Very close zoom - 1% of radius
-    }
+        // Pivot at current surface point
+        Vector3 pivot = CalculateSurfacePositionAtLatitude(cameraLat);
+        Vector3 surfaceNormal = CalculateSurfaceNormalAtLatitude(cameraLat);
 
-    void PositionCamera(float sphereRadius)
-    {
-        // Clamp camera latitude to valid range for shader calculations
-        // Stay within the shader's valid range but allow close to poles
-        float clampedLat = Mathf.Clamp(cameraLat, -89f, 89f); // dont need when bounds implemented
+        // Start from default offset aligned with surface normal (outward)
+        Vector3 offset = surfaceNormal * currentZoom;
 
-        // Calculate surface point and normal at current camera latitude
-        Vector3 surfaceNormal = CalculateSurfaceNormalAtLatitude(clampedLat, sphereRadius);
+        // Apply yaw around world up
+        Quaternion yawQ = Quaternion.AngleAxis(orbitYawDeg, Vector3.up);
+        Vector3 afterYaw = yawQ * offset;
 
-        // Debug: print the current surface normal each frame (comment out if too noisy)
-        Debug.Log($"Surface normal @ lat {clampedLat:F1}° : {surfaceNormal}");
-        
-        // Position camera radially outward from surface at zoom distance
-        Vector3 cameraPosition = new Vector3(0, 0, sphereRadius) + surfaceNormal * (sphereRadius + currentZoom);
+        // Right axis for pitch (perpendicular to world up and current view direction from pivot)
+        Vector3 rightAxis = Vector3.Cross(Vector3.up, afterYaw).normalized;
+        if (rightAxis.sqrMagnitude < 1e-6f)
+        {
+            // Fallback to a stable axis if near singularity
+            rightAxis = Vector3.right;
+        }
+
+        // Clamp pitch to keep camera right-side up
+        orbitPitchDeg = Mathf.Clamp(orbitPitchDeg, minPitchDeg, maxPitchDeg);
+        Quaternion pitchQ = Quaternion.AngleAxis(orbitPitchDeg, rightAxis);
+        Vector3 finalOffset = pitchQ * afterYaw;
+
+        Vector3 cameraPosition = pivot + finalOffset;
         cam.transform.localPosition = cameraPosition;
-        
-        // Camera looks toward the surface
-        Vector3 cameraForward = -surfaceNormal;
-        
-        transform.localRotation = Quaternion.LookRotation(cameraForward, Vector3.up);
+
+        // Look at pivot with world up to avoid roll
+        Vector3 forward = (pivot - cameraPosition).normalized;
+        transform.localRotation = Quaternion.LookRotation(forward, Vector3.up);
     }
-    
-    Vector3 CalculateSurfaceNormalAtLatitude(float latitudeDegrees, float sphereRadius)
+
+    Vector3 CalculateSurfacePositionAtLatitude(float latitudeDegrees)
     {
-        // Calculate the actual surface point at given latitude (same as shader math)
-        
-        // Convert camera latitude to UV coordinate, then to shader latitude
-        // This ensures we match the shader's UV mapping exactly
-        
-        // Convert latitude degrees to UV.y coordinate (matching shader's range)
-        // UV.y = 0.5 corresponds to latitude 0°
-        // UV.y = 0.0 corresponds to latitude -90°  
-        // UV.y = 1.0 corresponds to latitude +90°
+        float sphereRadius = Mathf.Lerp(radius * 3.0f, radius, currentMorph);
+
+        // uvX is always 0.5 because the camera always looks at center longitude
         float uvY = (latitudeDegrees / 180f) + 0.5f;
-        
-        // Use shader's exact calculation: lat = (UV.y - 0.5) * PI
-        float latitude = (uvY - 0.5f) * Mathf.PI;
+        Vector3 planePos = new(
+            0f, 
+            (uvY - 0.5f) * Mathf.PI * radius, 
+            0f
+        );
+
         float longitude = 0f; // Camera always looks at center longitude
-        
+        float latitude = (uvY - 0.5f) * Mathf.PI;
+
         // Sphere position at this latitude (same as shader)
         Vector3 sphereCenter = new Vector3(0, 0, sphereRadius);
         Vector3 spherePos = sphereCenter + sphereRadius * new Vector3(
@@ -130,23 +157,28 @@ public class WorldMapController : MonoBehaviour
             Mathf.Sin(latitude),
             -Mathf.Cos(latitude) * Mathf.Cos(longitude)     // = -Cos(latitude)
         );
-        
-        Vector3 nPlane  = new Vector3(0, 0, -1);              // (0,0,1)
-        Vector3 nSphere = (spherePos - sphereCenter).normalized;
-        Vector3 surfaceNormal = Vector3.Lerp(nPlane, nSphere, currentMorph).normalized;
 
-        Debug.Log($"Surface normal {surfaceNormal}");
-;
-        Debug.Log($"No lerp normal {nSphere}");
+        return Vector3.Lerp(planePos, spherePos, currentMorph);
+    }
+    
+    Vector3 CalculateSurfaceNormalAtLatitude(float latitudeDegrees)
+    {
+        float sphereRadius = Mathf.Lerp(radius * 3.0f, radius, currentMorph);
+
+        float uvY = (latitudeDegrees / 180f) + 0.5f;
+        
+        // Use shader's exact calculation: lat = (UV.y - 0.5) * PI
+        float longitude = 0f; // Camera always looks at center longitude
+        float latitude = (uvY - 0.5f) * Mathf.PI;
 
         // --- Geometric normal via analytic derivatives ---
         // Tangents of the flat plane (object-space)
-        Vector3 dPlane_du = new Vector3( 2.0f * Mathf.PI * radius, 0.0f, 0.0f );
-        Vector3 dPlane_dv = new Vector3( 0.0f, Mathf.PI * radius, 0.0f );
+        Vector3 dPlane_du = new( 2.0f * Mathf.PI * radius, 0.0f, 0.0f );
+        Vector3 dPlane_dv = new( 0.0f, Mathf.PI * radius, 0.0f );
 
         // Tangents of the morphed sphere patch
-        float  dLon_dU = (2.0f * Mathf.PI * radius) / sphereRadius; // ∂longitude / ∂u
-        float  dLat_dV = Mathf.PI;                                // ∂latitude  / ∂v
+        float dLon_dU = 2.0f * Mathf.PI; // ∂longitude / ∂u
+        float dLat_dV = Mathf.PI;        // ∂latitude  / ∂v
 
         // ∂Psphere/∂u  (varying longitude only)
         Vector3 dSphere_du = sphereRadius * new Vector3(
@@ -156,25 +188,80 @@ public class WorldMapController : MonoBehaviour
         );
 
         // ∂Psphere/∂v  (varying latitude only)
-        Vector3 dSphere_dv = sphereRadius * Mathf.PI * new Vector3(
-        -Mathf.Sin(latitude) * Mathf.Sin(longitude),             // X
-            Mathf.Cos(latitude),                      // Y
-            Mathf.Sin(latitude) * Mathf.Cos(longitude)              // Z
+        Vector3 dSphere_dv = sphereRadius * new Vector3(
+            -Mathf.Sin(latitude) * Mathf.Sin(longitude) * dLat_dV,    // X
+            Mathf.Cos(latitude) * dLat_dV,                            // Y
+            Mathf.Sin(latitude) * Mathf.Cos(longitude) * dLat_dV      // Z
         );
 
         // Blend plane and sphere tangents by Morph (same as position blend)
         Vector3 tangentU = Vector3.Lerp(dPlane_du, dSphere_du, currentMorph);
         Vector3 tangentV = Vector3.Lerp(dPlane_dv, dSphere_dv, currentMorph);
+        Vector3 sphereNormal = Vector3.Cross(tangentU, tangentV).normalized;
 
-        Vector3 geoNormal = Vector3.Cross(tangentU, tangentV).normalized;
+        return -sphereNormal;
+    }
 
-        // Ensure normal points outward (same hemisphere as sphere normal)
-        if (Vector3.Dot(geoNormal, nSphere) < 0.0) geoNormal = -geoNormal;
-
-        Debug.Log($"Geometric normal {geoNormal}");
-
-        //return surfaceNormal;
-        return geoNormal;
+    (float, float) CalculateLatitudeLimitsFromFOV()
+    {
+        // Calculate the maximum latitude where the FOV edge ray intersects the mesh surface
+        // This is independent of current camera position and gives symmetric limits
+        
+        float vFOV = cam.fieldOfView * Mathf.Deg2Rad;
+        float halfFOV = vFOV * 0.5f; // in radians
+        
+        // For a camera positioned at latitude L and zoom distance Z:
+        // - Camera position: surface(L) + normal(L) * Z
+        // - FOV edge ray: camera_pos + t * (forward + up * tan(halfFOV))
+        // - We need to find the maximum L where the FOV edge can see latitude 90°
+        // Binary search to find the maximum latitude where north pole is exactly at FOV edge
+        float minLat = 0f;
+        float maxLat = 90f;
+        
+        for (int i = 0; i < 12; i++) // Reduced iterations: 12 gives ~0.02° precision
+        {
+            float testLat = (minLat + maxLat) * 0.5f;
+            
+            // Calculate camera position for this test latitude
+            Vector3 cameraPos = CalculateSurfacePositionAtLatitude(testLat) + 
+                               CalculateSurfaceNormalAtLatitude(testLat) * currentZoom;
+            
+            // Calculate camera forward direction
+            Vector3 cameraForward = -CalculateSurfaceNormalAtLatitude(testLat);
+            Vector3 cameraUp = Vector3.up;
+            
+            // Make sure up vector is perpendicular to forward
+            cameraUp = Vector3.Cross(Vector3.Cross(cameraForward, cameraUp), cameraForward).normalized;
+            
+            // Get north pole position
+            Vector3 northPolePos = CalculateSurfacePositionAtLatitude(90f);
+            
+            // Calculate vector from camera to north pole
+            Vector3 toNorthPole = northPolePos - cameraPos;
+            
+            // Project onto camera's local coordinate system
+            float forwardDistance = Vector3.Dot(toNorthPole, cameraForward);
+            float upDistance = Vector3.Dot(toNorthPole, cameraUp);
+            
+            // Calculate angle from camera center to north pole (in radians)
+            float angleToNorthPole = Mathf.Atan2(upDistance, forwardDistance);
+                        
+            // We want to find where north pole is exactly at the TOP edge of FOV
+            // angleToNorthPole > 0 means north pole is above camera center (in upper half)
+            // We're looking for the latitude where angleToNorthPole = halfFOV
+            if (angleToNorthPole >= 0f && angleToNorthPole < halfFOV)
+            {
+                maxLat = testLat; // North pole is at/above top edge, too far north
+            }
+            else
+            {
+                minLat = testLat; // North pole is below top edge, can go further north
+            }
+        }
+        
+        float limitLatitude = (minLat + maxLat) * 0.5f;
+        
+        return (-limitLatitude, limitLatitude);
     }
 
     void SetupFlatMap()
@@ -203,7 +290,9 @@ public class WorldMapController : MonoBehaviour
             if (zoomRange > 0) // Avoid division by zero
             {
                 float normalizedZoom = (maxZoom - currentZoom) / zoomRange; // 0 at max zoom, 1 at min zoom
-                currentMorph = Mathf.Clamp01(normalizedZoom);
+                // Exponential shaping
+                float shaped = Mathf.Pow(Mathf.Clamp01(normalizedZoom), Mathf.Max(0.01f, morphExponent));
+                currentMorph = Mathf.Clamp01(shaped);
             }
         }
         
@@ -213,11 +302,6 @@ public class WorldMapController : MonoBehaviour
             mapMat.SetFloat("_Morph", currentMorph);
         }
 
-        sphereRadius = Mathf.Lerp(radius * 3.0f, radius, currentMorph);
-
-        // Update camera position
-        PositionCamera(sphereRadius);
-        
         // Get panning input
         Vector2 moveKeys = input.Map.Move.ReadValue<Vector2>();
         Vector2 dragPan = input.Map.DragPan.ReadValue<Vector2>();
@@ -236,12 +320,42 @@ public class WorldMapController : MonoBehaviour
         // Calculate panning from keys (WASD/arrows) and mouse drag
         float panLon = (moveKeys.x * panKeySpeed * Time.deltaTime) + (-dragPan.x * degreesPerPixelX);
         float panLat = (moveKeys.y * panKeySpeed * Time.deltaTime) + (-dragPan.y * degreesPerPixelY);
+
+        // Camera rotation (right mouse drag): orbit around surface pivot without changing focusLon/cameraLat
+        Vector2 rotateDelta = input.Map.Rotate.ReadValue<Vector2>();
+        bool rmbHeld = input.Map.RMB.IsPressed();
+        if (rmbHeld)
+        {
+            orbitYawDeg   += rotateDelta.x * rotateSensitivity;
+            // Invert fixed: dragging up increases pitch (camera moves up)
+            orbitPitchDeg += rotateDelta.y * rotateSensitivity;
+            orbitPitchDeg = Mathf.Clamp(orbitPitchDeg, minPitchDeg, maxPitchDeg);
+        }
+        else
+        {
+            // Smoothly return to default orientation (0 yaw/pitch) when RMB released
+            float step = returnToDefaultSpeed * Time.deltaTime;
+            orbitYawDeg = Mathf.MoveTowardsAngle(orbitYawDeg, 0f, step);
+            orbitPitchDeg = Mathf.MoveTowards(orbitPitchDeg, 0f, step);
+        }
         
         // Apply horizontal panning with UV offset (infinite scrolling)
         focusLon = Mathf.Repeat(focusLon + panLon, 360f);  // Wrap around horizontally
         
-        // Apply vertical panning with camera movement (no limits)
-        cameraLat += panLat;  // No wrapping - infinite vertical movement
+        // Apply vertical panning with camera movement (with latitude limits)
+        float newCameraLat = cameraLat + panLat;
+        
+        // Only recalculate latitude limits when zoom changes
+        if (Mathf.Abs(currentZoom - lastZoomForLimits) > 0.01f)
+        {
+            (cachedMinLatLimit, cachedMaxLatLimit) = CalculateLatitudeLimitsFromFOV();
+            lastZoomForLimits = currentZoom;
+        }
+        
+        cameraLat = Mathf.Clamp(newCameraLat, cachedMinLatLimit, cachedMaxLatLimit);
+
+        // Update camera position
+        PositionCamera();
         
         // Update UV offset for panning
         UpdateUVOffset();
@@ -276,7 +390,8 @@ public class WorldMapController : MonoBehaviour
             {
                 float zoomRange = maxZoom - minZoom;
                 float normalizedZoom = (maxZoom - currentZoom) / zoomRange;
-                currentMorph = Mathf.Clamp01(normalizedZoom);
+                float shaped = Mathf.Pow(Mathf.Clamp01(normalizedZoom), Mathf.Max(0.01f, morphExponent));
+                currentMorph = Mathf.Clamp01(shaped);
             }
             
             // Always apply current morph value to material
@@ -285,7 +400,7 @@ public class WorldMapController : MonoBehaviour
                 mapMat.SetFloat("_Morph", currentMorph);
             }
             
-            PositionCamera(sphereRadius);
+            PositionCamera();
             UpdateUVOffset();
         }
     }

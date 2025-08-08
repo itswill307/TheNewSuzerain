@@ -21,17 +21,6 @@ void PlaneSphereMorph_float(
     out float3 OutPosition,
     out float3 OutNormal)
 {
-    // Convert UV to longitude and latitude with proper orientation
-    // Keep center of mesh facing forward, but make convex instead of concave
-    float lon = (UV.x - 0.5) * (2.0 * PI_) - HALF_PI_;  // Offset to keep center forward
-    float lat = (UV.y - 0.5) * PI_;
-
-    // Trig helpers
-    float cosLat = cos(lat);
-    float sinLat = sin(lat);
-    float cosLon = cos(lon);
-    float sinLon = sin(lon);
-
     // Single-phase morph: flat rectangle → sphere (with simultaneous longitude and latitude curving)
     // Center of texture (UV 0.5, 0.5) stays at world origin (0, 0, 0)
     
@@ -53,7 +42,8 @@ void PlaneSphereMorph_float(
     // Calculate angles based on maintaining arc length = flat distance (no lateral distortion)
     // Arc length = angle × sphereRadius, Flat distance = (UV.x - 0.5) × 2π × Radius
     // For no distortion: angle × sphereRadius = (UV.x - 0.5) × 2π × Radius
-    float longitude = (UV.x - 0.5) * (2.0 * PI_ * Radius) / sphereRadius;
+    //float longitude = (UV.x - 0.5) * (2.0 * PI_ * Radius) / sphereRadius;
+    float longitude = (UV.x - 0.5) * (2.0 * PI_ );
     float latitude = (UV.y - 0.5) * PI_; // -π/2 to +π/2
     
     // Sphere center positioned so front face stays at Z=0
@@ -67,40 +57,49 @@ void PlaneSphereMorph_float(
     // Single-phase transition: flat → sphere (both longitude and latitude curve together)
     OutPosition = lerp(planePos, spherePos, Morph);
 
-    // --- Geometric normal via analytic derivatives ---
+    // --- Recalculated geometric normal using consistent latitude/longitude values ---
+    // Use the same latitude and longitude values as position calculation
+    float cosLat = cos(latitude);
+    float sinLat = sin(latitude);
+    float cosLon = cos(longitude);
+    float sinLon = sin(longitude);
+    
+    // Complex approach: Blend tangent vectors first for maximum accuracy
+    
     // Tangents of the flat plane (object-space)
     float3 dPlane_du = float3( 2.0 * PI_ * Radius, 0.0, 0.0 );
     float3 dPlane_dv = float3( 0.0, PI_ * Radius, 0.0 );
 
-    // Tangents of the morphed sphere patch
-    float  dLon_dU = (2.0 * PI_ * Radius) / sphereRadius; // ∂longitude / ∂u
-    float  dLat_dV = PI_;                                // ∂latitude  / ∂v
+    // Tangents of the morphed sphere patch - must match actual longitude/latitude derivatives
+    float  dLon_dU = 2.0 * PI_;  // Matches position: longitude = (UV.x - 0.5) * (2π)
+    float  dLat_dV = PI_;        // Matches position: latitude = (UV.y - 0.5) * π
 
-    // ∂Psphere/∂u  (varying longitude only)
+    // ∂Psphere/∂u  (varying longitude only) - includes sphereRadius scaling from position
     float3 dSphere_du = sphereRadius * float3(
-        cosLat * cosLon * dLon_dU,   // X
-        0.0,                         // Y
-        cosLat * sinLon * dLon_dU    // Z
+        cosLat * cosLon * dLon_dU,    // X: ∂(cos(lat)*sin(lon))/∂lon = cos(lat)*cos(lon)
+        0.0,                          // Y: ∂(sin(lat))/∂lon = 0
+        cosLat * sinLon * dLon_dU     // Z: ∂(-cos(lat)*cos(lon))/∂lon = cos(lat)*sin(lon)
     );
 
-    // ∂Psphere/∂v  (varying latitude only)
-    float3 dSphere_dv = sphereRadius * PI_ * float3(
-       -sinLat * sinLon,             // X
-        cosLat,                      // Y
-        sinLat * cosLon              // Z
+    // ∂Psphere/∂v  (varying latitude only) - includes sphereRadius scaling from position
+    float3 dSphere_dv = sphereRadius * float3(
+       -sinLat * sinLon * dLat_dV,    // X: ∂(cos(lat)*sin(lon))/∂lat = -sin(lat)*sin(lon)
+        cosLat * dLat_dV,             // Y: ∂(sin(lat))/∂lat = cos(lat)
+        sinLat * cosLon * dLat_dV     // Z: ∂(-cos(lat)*cos(lon))/∂lat = sin(lat)*cos(lon)
     );
 
-    // Blend plane and sphere tangents by Morph (same as position blend)
+    // Blend tangent vectors by Morph (represents actual intermediate surface geometry)
     float3 tangentU = lerp(dPlane_du, dSphere_du, Morph);
     float3 tangentV = lerp(dPlane_dv, dSphere_dv, Morph);
 
+    // Calculate normal from blended tangents (geometrically accurate for intermediate surface)
     float3 geoNormal = normalize(cross(tangentU, tangentV));
 
-    // Ensure normal points outward (same hemisphere as sphere normal)
-    float3 nSphere   = normalize(spherePos - sphereCenter);
-    if (dot(geoNormal, nSphere) < 0.0) geoNormal = -geoNormal;
+    // Ensure normal points outward (toward camera direction for accurate camera positioning)
+    //float3 towardCamera = float3(0, 0, -1);
+    //if (dot(geoNormal, towardCamera) < 0.0) geoNormal = -geoNormal;
 
-    OutNormal = geoNormal;
+    OutNormal = -geoNormal;
 }
 
 #endif // PLANE_SPHERE_MORPH_HLSL

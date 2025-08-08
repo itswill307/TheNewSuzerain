@@ -272,11 +272,12 @@ MonoBehaviour:
   mapMat: {fileID: 2100000, guid: 06539798bb9eaa64aa5c164b4d2bdde9, type: 2}
   mapRenderer: {fileID: 1554884630}
   radius: 100
-  zoomSpeed: 6
-  zoomInBuffer: 0.5
+  zoomSpeed: 1
+  zoomInBuffer: 0.01
   panKeySpeed: 60
   currentMorph: 0
   enableZoomMorph: 1
+  morphExponent: 4
 --- !u!1 &1554884627
 GameObject:
   m_ObjectHideFlags: 0
