@@ -135,6 +135,24 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Point"",
+                    ""type"": ""Value"",
+                    ""id"": ""ed63c4ac-9760-4883-bf4f-91afbf664f4a"",
+                    ""expectedControlType"": ""Vector2"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": true
+                },
+                {
+                    ""name"": ""LMB"",
+                    ""type"": ""Button"",
+                    ""id"": ""71150b1e-7acf-46ed-a0eb-6053c8fda617"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
                 }
             ],
             ""bindings"": [
@@ -324,6 +342,28 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""action"": ""RMB"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""66efa4f5-1586-4280-a401-7c4e971c64d9"",
+                    ""path"": ""<Mouse>/position"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Point"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""1dae6587-7baa-49d7-8acc-6e33db007f62"",
+                    ""path"": ""<Mouse>/leftButton"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""LMB"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
                 }
             ]
         }
@@ -398,6 +438,8 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         m_Map_Rotate = m_Map.FindAction("Rotate", throwIfNotFound: true);
         m_Map_Zoom = m_Map.FindAction("Zoom", throwIfNotFound: true);
         m_Map_RMB = m_Map.FindAction("RMB", throwIfNotFound: true);
+        m_Map_Point = m_Map.FindAction("Point", throwIfNotFound: true);
+        m_Map_LMB = m_Map.FindAction("LMB", throwIfNotFound: true);
     }
 
     ~@InputSystem_Actions()
@@ -483,6 +525,8 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
     private readonly InputAction m_Map_Rotate;
     private readonly InputAction m_Map_Zoom;
     private readonly InputAction m_Map_RMB;
+    private readonly InputAction m_Map_Point;
+    private readonly InputAction m_Map_LMB;
     /// <summary>
     /// Provides access to input actions defined in input action map "Map".
     /// </summary>
@@ -514,6 +558,14 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         /// Provides access to the underlying input action "Map/RMB".
         /// </summary>
         public InputAction @RMB => m_Wrapper.m_Map_RMB;
+        /// <summary>
+        /// Provides access to the underlying input action "Map/Point".
+        /// </summary>
+        public InputAction @Point => m_Wrapper.m_Map_Point;
+        /// <summary>
+        /// Provides access to the underlying input action "Map/LMB".
+        /// </summary>
+        public InputAction @LMB => m_Wrapper.m_Map_LMB;
         /// <summary>
         /// Provides access to the underlying input action map instance.
         /// </summary>
@@ -555,6 +607,12 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
             @RMB.started += instance.OnRMB;
             @RMB.performed += instance.OnRMB;
             @RMB.canceled += instance.OnRMB;
+            @Point.started += instance.OnPoint;
+            @Point.performed += instance.OnPoint;
+            @Point.canceled += instance.OnPoint;
+            @LMB.started += instance.OnLMB;
+            @LMB.performed += instance.OnLMB;
+            @LMB.canceled += instance.OnLMB;
         }
 
         /// <summary>
@@ -581,6 +639,12 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
             @RMB.started -= instance.OnRMB;
             @RMB.performed -= instance.OnRMB;
             @RMB.canceled -= instance.OnRMB;
+            @Point.started -= instance.OnPoint;
+            @Point.performed -= instance.OnPoint;
+            @Point.canceled -= instance.OnPoint;
+            @LMB.started -= instance.OnLMB;
+            @LMB.performed -= instance.OnLMB;
+            @LMB.canceled -= instance.OnLMB;
         }
 
         /// <summary>
@@ -721,5 +785,19 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnRMB(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "Point" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnPoint(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "LMB" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnLMB(InputAction.CallbackContext context);
     }
 }
