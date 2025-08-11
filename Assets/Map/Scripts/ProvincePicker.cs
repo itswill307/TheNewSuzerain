@@ -21,6 +21,10 @@ public class ProvincePicker : MonoBehaviour
     public string hoverColorProp   = "_HoverColor";
     public Color hoverColor        = new Color(0f, 1f, 1f, 0.5f);
 
+    [Header("Masking")]
+    [SerializeField] bool blockOcean = true;
+    [SerializeField] int oceanId = 0; // Treat this ID as unhoverable/unselectable (background/ocean)
+
     Renderer rend;
     Color32[] idPixels;
     int texW, texH;
@@ -65,6 +69,14 @@ public class ProvincePicker : MonoBehaviour
             v = Mathf.Clamp01(v);        // clamp Y
 
             int pid = SampleProvinceId(u, v);
+
+            // Block ocean/background selection/hover
+            if (blockOcean && pid == oceanId)
+            {
+                if (mapMaterial) mapMaterial.SetInt(hoverIdProp, -1);
+                // Ignore clicks on ocean
+                return;
+            }
 
             if (highlightHovered)
             {

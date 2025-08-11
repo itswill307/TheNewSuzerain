@@ -25,12 +25,16 @@ void ProvinceIdFromRGB_float(float3 idRGB, out float idOut)
 }
 
 // 2) Produce a 0/1 mask for equality with selectedId, and also output the decoded ID.
+//    Guards against negative selectedId (e.g. -1 sentinel) to ensure mask = 0 in that case.
 void ProvinceIdMaskFromRGB_float(float3 idRGB, float selectedId, out float mask, out float idOut)
 {
     uint pid = DecodeProvinceId24(idRGB);
     idOut = (float)pid;
-    uint sid = (uint)round(selectedId);
-    mask = (pid == sid) ? 1.0 : 0.0;
+    // Gate: if selectedId < 0, disable the mask entirely
+    float enabled = step(0.0, selectedId + 0.5);
+    // Avoid wrap when converting negative float to uint
+    uint sid = (uint)max(0.0, round(selectedId));
+    mask = enabled * ((pid == sid) ? 1.0 : 0.0);
 }
 
 // 3) Click highlight: baseColor + highlightColor.rgb * highlightColor.a when IDs match.
@@ -55,6 +59,9 @@ void ProvinceHoverSelectFromRGB_float(
 
     float mHover, idHover;
     ProvinceIdMaskFromRGB_float(idRGB, hoverId, mHover, idHover);
+    // Ensure hover cannot apply when hoverId is negative (e.g. -1 sentinel from CPU)
+    float hoverEnabled = step(0.0, hoverId + 0.5);
+    mHover *= hoverEnabled;
 
     float3 c = baseColor;
     c = lerp(c, c + hoverColor.rgb * hoverColor.a, mHover);

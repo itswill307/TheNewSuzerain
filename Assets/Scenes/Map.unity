@@ -386,13 +386,15 @@ MonoBehaviour:
   mapMaterial: {fileID: 2100000, guid: 06539798bb9eaa64aa5c164b4d2bdde9, type: 2}
   provinceIdTex: {fileID: 2800000, guid: e14b455903d1ef54aa110de267340f16, type: 3}
   radius: 100
-  highlightHovered: 0
+  highlightHovered: 1
   selectedIdProp: _SelectedID
   highlightColorProp: _HighlightColor
   highlightColor: {r: 1, g: 0.75, b: 0, a: 0.6}
   hoverIdProp: _HoverID
   hoverColorProp: _HoverColor
   hoverColor: {r: 0, g: 1, b: 1, a: 0.5}
+  blockOcean: 1
+  oceanId: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
