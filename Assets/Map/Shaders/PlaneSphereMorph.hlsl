@@ -15,11 +15,17 @@ static const float HALF_PI_ = 1.57079632679;
 //   • Outputs:     OutPosition (Vector3), OutNormal (Vector3)
 // Note: the “_float” suffix matches Shader Graph’s precision-suffix rules. :contentReference[oaicite:0]{index=0}
 void PlaneSphereMorph_float(
-    float2 UV,
-    float  Radius,
-    float  Morph,
-    out float3 OutPosition,
-    out float3 OutNormal)
+    float2       UV,
+    float        Radius,
+    float        Morph,
+    // Height/Elevation inputs (R16 heightmap assumed 0..1 normalized)
+    UnityTexture2D    HeightTex,
+    UnitySamplerState HeightSampler,
+    float2       UVOffset,     // should match your material's _UVOffset.x wrap
+    float        HeightScale,  // world units per [0..1]; use negative to raise toward camera if desired
+    float        HeightBias,   // world units to add/subtract after scaling (e.g., -seaLevel)
+    out float3   OutPosition,
+    out float3   OutNormal)
 {
     // Single-phase morph: flat rectangle → sphere (with simultaneous longitude and latitude curving)
     // Center of texture (UV 0.5, 0.5) stays at world origin (0, 0, 0)
@@ -55,7 +61,7 @@ void PlaneSphereMorph_float(
     );
     
     // Single-phase transition: flat → sphere (both longitude and latitude curve together)
-    OutPosition = lerp(planePos, spherePos, Morph);
+    float3 basePos = lerp(planePos, spherePos, Morph);
 
     // --- Recalculated geometric normal using consistent latitude/longitude values ---
     // Use the same latitude and longitude values as position calculation
@@ -94,6 +100,17 @@ void PlaneSphereMorph_float(
 
     // Calculate normal from blended tangents (geometrically accurate for intermediate surface)
     float3 geoNormal = normalize(cross(tangentU, tangentV));
+
+    // --- Elevation displacement (sample R16 heightmap in 0..1) ---
+    float2 sampleUV = float2(
+        frac(UV.x + UVOffset.x),  // Normal sampling 
+        saturate(UV.y + UVOffset.y)
+    );
+    float height01 = HeightTex.SampleLevel(HeightSampler, sampleUV, 0).r; // R16 normalized (0..1)
+    float heightWU = (height01 - HeightBias) * HeightScale;                 // convert to world units
+
+    // Test: Are waves caused by height displacement?
+    OutPosition = basePos + (-geoNormal) * heightWU;
 
     // Ensure normal points outward (toward camera direction for accurate camera positioning)
     //float3 towardCamera = float3(0, 0, -1);

@@ -275,6 +275,9 @@ MonoBehaviour:
   zoomSpeed: 1
   zoomInBuffer: 0.01
   panKeySpeed: 60
+  panDragSpeed: 3
+  panVelocityMultiplier: 0.1
+  maxVelocityBoost: 5
   rotateSensitivity: 0.2
   minPitchDeg: -80
   maxPitchDeg: 80
@@ -384,7 +387,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cam: {fileID: 101723295}
   mapMaterial: {fileID: 2100000, guid: 06539798bb9eaa64aa5c164b4d2bdde9, type: 2}
-  provinceIdTex: {fileID: 2800000, guid: e14b455903d1ef54aa110de267340f16, type: 3}
+  provinceIdTex: {fileID: 2800000, guid: bb93bd5c545c348dc9ea5b733f96a3a7, type: 3}
   radius: 100
   highlightHovered: 1
   selectedIdProp: _SelectedID

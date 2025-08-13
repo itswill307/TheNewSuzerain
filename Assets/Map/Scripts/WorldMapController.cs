@@ -17,6 +17,9 @@ public class WorldMapController : MonoBehaviour
 
     [Header("Panning")]
     [SerializeField] float panKeySpeed = 60f;        // degrees per second for keys
+    [SerializeField] float panDragSpeed = 3f;        // mouse drag sensitivity multiplier
+    [SerializeField] float panVelocityMultiplier = 0.1f;  // velocity-based acceleration factor
+    [SerializeField] float maxVelocityBoost = 5f;    // maximum velocity multiplier
     
     [Header("Rotation")]
     [SerializeField, Tooltip("Degrees of yaw/pitch per pixel when rotating (right mouse drag)")]
@@ -317,9 +320,14 @@ public class WorldMapController : MonoBehaviour
         float degreesPerPixelX = (worldUnitsPerPixelX / mapWidth) * 360f;
         float degreesPerPixelY = (worldUnitsPerPixelY / mapHeight) * 180f;
 
-        // Calculate panning from keys (WASD/arrows) and mouse drag
-        float panLon = (moveKeys.x * panKeySpeed * Time.deltaTime) + (-dragPan.x * degreesPerPixelX);
-        float panLat = (moveKeys.y * panKeySpeed * Time.deltaTime) + (-dragPan.y * degreesPerPixelY);
+        // Calculate velocity-based panning acceleration
+        float mouseVelocity = dragPan.magnitude; // pixels per frame
+        float velocityBoost = 1f + (mouseVelocity * panVelocityMultiplier);
+        velocityBoost = Mathf.Clamp(velocityBoost, 1f, maxVelocityBoost);
+        
+        // Calculate panning from keys (WASD/arrows) and mouse drag with velocity boost
+        float panLon = (moveKeys.x * panKeySpeed * Time.deltaTime) + (-dragPan.x * degreesPerPixelX * panDragSpeed * velocityBoost);
+        float panLat = (moveKeys.y * panKeySpeed * Time.deltaTime) + (-dragPan.y * degreesPerPixelY * panDragSpeed * velocityBoost);
 
         // Camera rotation (right mouse drag): orbit around surface pivot without changing focusLon/cameraLat
         Vector2 rotateDelta = input.Map.Rotate.ReadValue<Vector2>();
@@ -371,6 +379,10 @@ public class WorldMapController : MonoBehaviour
         
         // Set UV offset: only X for horizontal infinite panning
         mapMat.SetVector("_UVOffset", new Vector2(uvOffsetX, uvOffsetY));
+        
+        // Keep full detail at all zoom levels - no LOD smoothing
+        float heightLod = 0.0f; // Always use highest resolution
+        mapMat.SetFloat("_HeightLod", heightLod);
         
         // No mesh movement - texture panning handled purely by UV offset
     }
