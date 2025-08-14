@@ -49,6 +49,8 @@ public class ProvincePicker : MonoBehaviour
         if (mapMaterial)
         {
             mapMaterial.SetTexture("_ProvinceIDTex", provinceIdTex);
+            // Initialize selected province ID to -1 (no selection)
+            mapMaterial.SetInt(selectedIdProp, -1);
         }
     }
 

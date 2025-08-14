@@ -272,11 +272,11 @@ MonoBehaviour:
   mapMat: {fileID: 2100000, guid: 06539798bb9eaa64aa5c164b4d2bdde9, type: 2}
   mapRenderer: {fileID: 1554884630}
   radius: 100
-  zoomSpeed: 1
+  zoomSpeed: 6
   zoomInBuffer: 0.01
   panKeySpeed: 60
-  panDragSpeed: 3
-  panVelocityMultiplier: 0.1
+  panDragSpeed: 1
+  panVelocityMultiplier: 0.01
   maxVelocityBoost: 5
   rotateSensitivity: 0.2
   minPitchDeg: -80
