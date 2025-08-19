@@ -10,9 +10,29 @@ public class MultiplayerBootstrap : MonoBehaviour
     [SerializeField] TMP_InputField joinCodeInput;  // or TMP_InputField
     [SerializeField] TMP_Text joinCodeLabel;        // or TMP_Text
 
+    // Called by the Singleplayer/Offline button
+    public void Singleplayer()
+    {
+        // Enter offline mode so SessionInit won't spin up UGS on next scene
+        SessionInit.RequestOffline();
+    // If you're using UGS Sessions, add your session-leave/cleanup here (API varies by package version)
+    // e.g., await session.LeaveAsync(); or await session.CloseAsync();
+
+        // If networking is running (from a previous session), stop it
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
+        {
+            NetworkManager.Singleton.Shutdown();
+        }
+
+        // Load the gameplay scene directly without UGS/Relay/NGO session
+        SceneManager.LoadScene("Map", LoadSceneMode.Single);
+    }
+
     // Called by the Host button
     public async void Host()
     {
+    // Ensure we're in online mode
+    SessionInit.RequestOnline();
         await SessionInit.EnsureReady();
 
         // Create a Sessions "hosted" game using Unity Relay under the hood
@@ -30,6 +50,8 @@ public class MultiplayerBootstrap : MonoBehaviour
     // Called by the Join button
     public async void Join()
     {
+    // Ensure we're in online mode
+    SessionInit.RequestOnline();
         await SessionInit.EnsureReady();
         var code = joinCodeInput.text.Trim().ToUpperInvariant();
 
