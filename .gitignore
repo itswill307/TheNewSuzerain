@@ -74,9 +74,9 @@ crashlytics-build.properties
 /[Aa]ssets/[Ss]treamingAssets/aa.meta
 /[Aa]ssets/[Ss]treamingAssets/aa/*
 
-world.200407.3x21600x10800.png
+#world.200407.3x21600x10800.png
 .vscode/
 .vsconfig
 .DS_Store
 /Assets/TextMesh Pro/
-height01_float.tif
+#height01_float.tif
